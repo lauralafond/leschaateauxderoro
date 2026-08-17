@@ -12,14 +12,13 @@ const TILE_RADIUS_METERS = 45000;
 const MAX_TILES_PER_AXIS = 4;
 const MAX_RESULTS = 20;
 
-/** Approximate bounding box for the Île-de-France region — used as the
- * initial view so every castle in the region loads as soon as the page opens. */
-const ILE_DE_FRANCE_BOUNDS: google.maps.LatLngBoundsLiteral = {
-  north: 49.25,
-  south: 48.12,
-  east: 3.6,
-  west: 1.45,
-};
+/** Approximate center of the Île-de-France region, paired with a zoom level
+ * tuned to snugly frame it on load — a fixed center/zoom avoids `fitBounds()`
+ * rounding down to a much wider zoom level on raster maps (which otherwise
+ * shows far more area than intended and triples the number of search tiles
+ * needed to cover it). */
+const ILE_DE_FRANCE_CENTER = { lat: 48.69, lng: 2.5 };
+const ILE_DE_FRANCE_ZOOM = 9;
 
 /**
  * Field mask for `Place.searchNearby`. Limited to what the popup needs —
@@ -142,6 +141,8 @@ export const CastleMap = () => {
       .then(() => {
         if (cancelled || !containerRef.current) return;
         const map = new google.maps.Map(containerRef.current, {
+          center: ILE_DE_FRANCE_CENTER,
+          zoom: ILE_DE_FRANCE_ZOOM,
           styles: MAP_STYLES,
           mapTypeControl: false,
           streetViewControl: false,
@@ -149,14 +150,6 @@ export const CastleMap = () => {
           zoomControl: true,
           gestureHandling: "greedy",
         });
-        // Fit to the whole Île-de-France region on first load, rather than a
-        // fixed center/zoom — this stays correct across any screen size.
-        // Triggering `resize` first works around a known timing issue where
-        // fitBounds(), called immediately after the map is constructed,
-        // measures a stale/zero container size and zooms out much further
-        // than the given bounds actually require.
-        google.maps.event.trigger(map, "resize");
-        map.fitBounds(ILE_DE_FRANCE_BOUNDS);
         mapRef.current = map;
         infoWindowRef.current = new google.maps.InfoWindow();
         setStatus("ready");
