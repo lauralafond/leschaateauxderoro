@@ -4,8 +4,6 @@ import { loadGoogleMaps } from "@/lib/google-maps-loader";
 import { buildCastleIcon } from "@/lib/castle-marker-icon";
 import { buildCastlePopupContent } from "./CastlePopupContent";
 
-/** Below this zoom the viewport is too wide for a useful nearby search. */
-const MIN_ZOOM_FOR_SEARCH = 8;
 /** Nearby Search (New) hard caps the radius at 50km; stay a bit under it. */
 const TILE_RADIUS_METERS = 45000;
 /** Cap grid size per axis so a very wide viewport can't fire unbounded requests. */
@@ -64,7 +62,7 @@ const MAP_STYLES: google.maps.MapTypeStyle[] = [
   { featureType: "administrative.land_parcel", stylers: [{ visibility: "simplified" }] },
 ];
 
-type Status = "loading" | "ready" | "error" | "zoom-in";
+type Status = "loading" | "ready" | "error";
 
 /** Haversine distance in meters between two LatLngs. */
 function haversineMeters(a: google.maps.LatLng, b: google.maps.LatLng): number {
@@ -124,18 +122,12 @@ export const CastleMap = () => {
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<Map<string, google.maps.Marker>>(new Map());
   const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
-  // IDs returned by the latest search — used to discard icon-build races that
-  // complete after a newer search has changed the visible set.
-  const latestSeenRef = useRef<Set<string>>(new Set());
-  // Monotonic search generation; only the latest search's response is applied.
-  const searchGenRef = useRef(0);
   const [status, setStatus] = useState<Status>("loading");
   const [error, setError] = useState<string>("");
   const { t } = useTranslation();
 
   useEffect(() => {
     let cancelled = false;
-    let idleListener: google.maps.MapsEventListener | null = null;
 
     loadGoogleMaps()
       .then(() => {
@@ -154,8 +146,11 @@ export const CastleMap = () => {
         infoWindowRef.current = new google.maps.InfoWindow();
         setStatus("ready");
 
-        idleListener = map.addListener("idle", () => {
-          void runSearch();
+        // Search once, right after the initial view settles, then leave the
+        // result on the map permanently — panning/zooming afterwards never
+        // re-searches, so it can never add, hide, or remove any castle.
+        google.maps.event.addListenerOnce(map, "idle", () => {
+          void runInitialSearch();
         });
       })
       .catch((err: unknown) => {
@@ -165,31 +160,12 @@ export const CastleMap = () => {
         setStatus("error");
       });
 
-    const runSearch = async () => {
+    const runInitialSearch = async () => {
       const map = mapRef.current;
-      if (!map) return;
-      const zoom = map.getZoom() ?? 0;
-      if (zoom < MIN_ZOOM_FOR_SEARCH) {
-        // Too wide to be useful — show the hint and clear stale markers so the
-        // user doesn't see leftover pins from the previous zoom level.
-        if (markersRef.current.size > 0) {
-          markersRef.current.forEach((m) => m.setMap(null));
-          markersRef.current.clear();
-          infoWindowRef.current?.close();
-        }
-        latestSeenRef.current = new Set();
-        searchGenRef.current += 1; // invalidate any in-flight search
-        setStatus("zoom-in");
-        return;
-      }
-      // Zoomed in enough — clear the zoom-in hint if it was showing.
-      setStatus((prev) => (prev === "zoom-in" ? "ready" : prev));
-
-      const bounds = map.getBounds();
+      const bounds = map?.getBounds();
       if (!bounds) return;
 
       const tiles = computeSearchTiles(bounds);
-      const gen = ++searchGenRef.current;
 
       try {
         const responses = await Promise.all(
@@ -203,7 +179,7 @@ export const CastleMap = () => {
             }),
           ),
         );
-        if (cancelled || gen !== searchGenRef.current) return;
+        if (cancelled) return;
 
         // Merge every tile's results, de-duplicating places that fall inside
         // more than one overlapping circle.
@@ -220,39 +196,27 @@ export const CastleMap = () => {
         const castlesOnly = [...merged.values()].filter((place) =>
           place.types?.includes("castle"),
         );
-        syncMarkers(castlesOnly);
+        addMarkers(castlesOnly);
       } catch (err) {
         console.error("castle searchNearby failed:", err);
       }
     };
 
-    const syncMarkers = (places: google.maps.places.Place[]) => {
-      const map = mapRef.current;
-      if (!map) return;
-      const seen = new Set<string>();
+    const addMarkers = (places: google.maps.places.Place[]) => {
       for (const place of places) {
         const id = place.id;
         const location = place.location;
         if (!id || !location) continue;
-        seen.add(id);
         if (markersRef.current.has(id)) continue; // already on the map
 
         // Icon build is async (may fetch Google's category glyph). Create the
-        // marker only once the icon is ready so we never flash a default pin,
-        // and discard the build if a newer search has changed the visible set.
+        // marker only once the icon is ready so we never flash a default pin.
         void (async () => {
           const icon = await buildCastleIcon(
             place.svgIconMaskURI,
             place.iconBackgroundColor,
           );
-          if (
-            cancelled ||
-            !mapRef.current ||
-            !latestSeenRef.current.has(id) ||
-            markersRef.current.has(id)
-          ) {
-            return;
-          }
+          if (cancelled || !mapRef.current || markersRef.current.has(id)) return;
           const marker = new google.maps.Marker({
             map: mapRef.current,
             position: location,
@@ -268,20 +232,10 @@ export const CastleMap = () => {
           markersRef.current.set(id, marker);
         })();
       }
-      latestSeenRef.current = seen;
-
-      // Remove markers that fell out of the latest result set.
-      for (const [id, marker] of markersRef.current.entries()) {
-        if (!seen.has(id)) {
-          marker.setMap(null);
-          markersRef.current.delete(id);
-        }
-      }
     };
 
     return () => {
       cancelled = true;
-      if (idleListener) idleListener.remove();
       markersRef.current.forEach((m) => m.setMap(null));
       markersRef.current.clear();
       infoWindowRef.current?.close();
@@ -310,14 +264,6 @@ export const CastleMap = () => {
             <p className="text-sm text-muted-foreground">{error}</p>
           </div>
         </Overlay>
-      )}
-
-      {status === "zoom-in" && (
-        <div className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2">
-          <div className="pointer-events-auto rounded-full bg-background/95 px-4 py-1.5 text-sm text-foreground shadow-md ring-1 ring-border">
-            {t("castle.zoomInHint")}
-          </div>
-        </div>
       )}
     </div>
   );

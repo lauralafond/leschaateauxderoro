@@ -2,7 +2,6 @@
   "common.appName": "Your App Name",
   "castle.appTitle": "Castles Explorer",
   "castle.loading": "Loading map…",
-  "castle.zoomInHint": "Zoom in to see castles",
   "castle.errorTitle": "Couldn't load the map",
   "notFound.title": "Oops! Page not found",
   "notFound.actions.backHome": "Return to Home"
