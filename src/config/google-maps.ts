@@ -35,5 +35,5 @@ export const GOOGLE_MAPS_API_KEY = "AIzaSyCFsUvWYZ9Zmt34ZrBWMr4BnqhT80WSq4Q";
  * `styles` array in CastleMap.tsx (POI labels/icons hidden, but the
  * spotlighted-business tile overlay may still show through).
  */
-export const GOOGLE_MAPS_MAP_ID = "YOUR_MAP_ID_HERE";
+export const GOOGLE_MAPS_MAP_ID = "256862b171b499ce672b6b34";
 
