@@ -1,21 +1,21 @@
 import { useTranslation } from "react-i18next";
+import { LanguageSwitcher } from "@/components/language-switcher";
+import { CastleMap } from "@/components/castle-map/CastleMap";
 
 const Index = () => {
   const { t } = useTranslation();
 
   return (
-    <div className="relative flex h-full w-full flex-col bg-gradient-to-b from-[#4E54C8] to-[#A8C0FF] p-[32px] max-md:pb-[32px] max-md:pl-[20px] max-md:pr-[20px] max-md:pt-[32px]">
-      <div className="text-[26px] text-white max-md:text-[22px]">
-        {t("common.appName")}
-      </div>
-      <div className="flex h-full flex-1 flex-col items-center justify-center">
-        <div className="text-center text-[48px] text-white max-md:text-[26px]">
-          {t("home.hero.title")}
-        </div>
-        <div className="text-center text-[24px] text-white max-md:text-[16px]">
-          {t("home.hero.subtitle")}
-        </div>
-      </div>
+    <div className="flex h-full w-full flex-col">
+      <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background px-4">
+        <span className="text-base font-semibold text-foreground">
+          {t("castle.appTitle")}
+        </span>
+        <LanguageSwitcher className="h-9" />
+      </header>
+      <main className="relative min-h-0 flex-1">
+        <CastleMap />
+      </main>
     </div>
   );
 };

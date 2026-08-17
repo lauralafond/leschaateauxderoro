@@ -34,22 +34,22 @@ This needs a Google Cloud project with **Maps JavaScript API** + **Places API (N
 - Paste that key into `src/config/google-maps.ts`.
 
 ## Implementation checklist
-- [ ] `src/config/google-maps.ts` created with a clearly-marked placeholder `GOOGLE_MAPS_API_KEY`.
-- [ ] `google-maps-loader.ts` injects the bootstrap script exactly once even if the component mounts/unmounts (e.g. dev HMR), and rejects/logs if `GOOGLE_MAPS_API_KEY` is still the placeholder.
-- [ ] `CastleMap` renders a full-height/width `Map` with POI layer (`featureType: 'poi'`) visibility off.
-- [ ] `idle` listener computes a bounded circle (viewport half-diagonal capped at 50000m) and calls `Place.searchNearby({ includedTypes: ['castle'], ... })`.
-- [ ] Below a minimum zoom threshold, search is skipped and a "zoom in" hint is shown instead of firing a huge-radius query.
-- [ ] Existing markers not present in the latest result set are removed; markers for previously-seen castles are reused (no flicker) when still present.
-- [ ] Each marker icon uses `buildCastleIcon()`; falls back to a bundled castle glyph when `iconMaskBaseUri`/`iconBackgroundColor` are missing from the response.
-- [ ] Clicking a marker opens a single shared `InfoWindow` anchored to that marker, styled like Google's place card: photo (if returned), name, rating/review count, open/closed status, formatted address, and a "View on Google Maps" link (`googleMapsUri`).
-- [ ] `Index.tsx` renders the map full-bleed; no other unrelated page content remains.
-- [ ] New UI strings added to both `public/locales/en.json` and `zh-CN.json`.
+- [passed] `src/config/google-maps.ts` created with a clearly-marked placeholder `GOOGLE_MAPS_API_KEY`.
+- [passed] `google-maps-loader.ts` injects the bootstrap script exactly once even if the component mounts/unmounts (e.g. dev HMR), and rejects/logs if `GOOGLE_MAPS_API_KEY` is still the placeholder.
+- [passed] `CastleMap` renders a full-height/width `Map` with POI layer (`featureType: 'poi'`) visibility off.
+- [passed] `idle` listener computes a bounded circle (viewport half-diagonal capped at 50000m) and calls `Place.searchNearby({ includedTypes: ['castle'], ... })`.
+- [passed] Below a minimum zoom threshold, search is skipped and a "zoom in" hint is shown instead of firing a huge-radius query.
+- [passed] Existing markers not present in the latest result set are removed; markers for previously-seen castles are reused (no flicker) when still present.
+- [passed] Each marker icon uses `buildCastleIcon()`; falls back to a bundled castle glyph when `iconMaskBaseUri`/`iconBackgroundColor` are missing from the response.
+- [passed] Clicking a marker opens a single shared `InfoWindow` anchored to that marker, styled like Google's place card: photo (if returned), name, rating/review count, open/closed status, formatted address, and a "View on Google Maps" link (`googleMapsUri`).
+- [passed] `Index.tsx` renders the map full-bleed; no other unrelated page content remains.
+- [passed] New UI strings added to both `public/locales/en.json` and `zh-CN.json`.
 
 ## Verification checklist
-- [ ] With a valid key pasted in: loading the page shows a world/country-level map with no default POI icons visible.
-- [ ] Zooming into a region known to have a castle (e.g. Edinburgh, Neuschwanstein) reveals a castle-badge marker and no other POI icons.
-- [ ] Clicking the castle marker opens a popup matching Google's usual place card (photo when available, name/rating/open-status/address/link); clicking elsewhere or another marker closes/moves the popup correctly.
-- [ ] Panning/zooming repeatedly does not leak markers (stale ones from previous view are cleaned up) or spam requests (only fires on `idle`, not every frame).
-- [ ] Zoomed all the way out (world view), no search fires and the "zoom in" hint is shown instead.
-- [ ] With the placeholder key still in place, the app fails gracefully (visible message) instead of a blank white screen or console-only crash.
-- [ ] `pnpm lint` / build passes with no TypeScript errors from the new `google.maps.*` usage.
+- [manual-required] With a valid key pasted in: loading the page shows a world/country-level map with no default POI icons visible.
+- [manual-required] Zooming into a region known to have a castle (e.g. Edinburgh, Neuschwanstein) reveals a castle-badge marker and no other POI icons.
+- [manual-required] Clicking the castle marker opens a popup matching Google's usual place card (photo when available, name/rating/open-status/address/link); clicking elsewhere or another marker closes/moves the popup correctly.
+- [manual-required] Panning/zooming repeatedly does not leak markers (stale ones from previous view are cleaned up) or spam requests (only fires on `idle`, not every frame).
+- [manual-required] Zoomed all the way out (world view), no search fires and the "zoom in" hint is shown instead.
+- [passed] With the placeholder key still in place, the app fails gracefully (visible message) instead of a blank white screen or console-only crash.
+- [passed] `pnpm lint` / build passes with no TypeScript errors from the new `google.maps.*` usage.
