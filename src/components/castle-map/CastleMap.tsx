@@ -27,6 +27,7 @@ const SEARCH_FIELDS = [
   "userRatingCount",
   "regularOpeningHours",
   "photos",
+  "types",
 ] as const;
 
 /**
@@ -138,7 +139,14 @@ export const CastleMap = () => {
           rankPreference: "POPULARITY",
         });
         if (cancelled || gen !== searchGenRef.current) return;
-        syncMarkers(response.places ?? []);
+        // Nearby Search (New) can occasionally return places that aren't
+        // actually tagged with the requested type — a known looseness for
+        // narrow categories like `castle` when few real matches exist nearby.
+        // Enforce the filter ourselves so no restaurant/shop/etc. slips in.
+        const castlesOnly = (response.places ?? []).filter((place) =>
+          place.types?.includes("castle"),
+        );
+        syncMarkers(castlesOnly);
       } catch (err) {
         console.error("castle searchNearby failed:", err);
       }
