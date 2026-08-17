@@ -6,9 +6,20 @@ import { buildCastlePopupContent } from "./CastlePopupContent";
 
 /** Below this zoom the viewport is too wide for a useful nearby search. */
 const MIN_ZOOM_FOR_SEARCH = 8;
-/** Nearby Search (New) hard caps the radius at 50km. */
-const MAX_RADIUS_METERS = 50000;
+/** Nearby Search (New) hard caps the radius at 50km; stay a bit under it. */
+const TILE_RADIUS_METERS = 45000;
+/** Cap grid size per axis so a very wide viewport can't fire unbounded requests. */
+const MAX_TILES_PER_AXIS = 4;
 const MAX_RESULTS = 20;
+
+/** Approximate bounding box for the Île-de-France region — used as the
+ * initial view so every castle in the region loads as soon as the page opens. */
+const ILE_DE_FRANCE_BOUNDS: google.maps.LatLngBoundsLiteral = {
+  north: 49.25,
+  south: 48.12,
+  east: 3.6,
+  west: 1.45,
+};
 
 /**
  * Field mask for `Place.searchNearby`. Limited to what the popup needs —
@@ -68,6 +79,47 @@ function haversineMeters(a: google.maps.LatLng, b: google.maps.LatLng): number {
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
+/**
+ * Nearby Search (New) caps each request's radius at 50km, so a single search
+ * from the viewport's center can't cover a wide area like the whole
+ * Île-de-France region. This tiles the current bounds into a grid of
+ * overlapping `TILE_RADIUS_METERS` circles so every corner of the visible
+ * area gets searched, not just the area immediately around its center.
+ */
+function computeSearchTiles(
+  bounds: google.maps.LatLngBounds,
+): { center: google.maps.LatLng; radius: number }[] {
+  const ne = bounds.getNorthEast();
+  const sw = bounds.getSouthWest();
+  const centerLat = (ne.lat() + sw.lat()) / 2;
+  const centerLng = (ne.lng() + sw.lng()) / 2;
+
+  const widthMeters = haversineMeters(
+    new google.maps.LatLng(centerLat, sw.lng()),
+    new google.maps.LatLng(centerLat, ne.lng()),
+  );
+  const heightMeters = haversineMeters(
+    new google.maps.LatLng(sw.lat(), centerLng),
+    new google.maps.LatLng(ne.lat(), centerLng),
+  );
+
+  // Spacing a bit under radius*sqrt(2) keeps neighboring circles overlapping
+  // enough to leave no gaps at the corners of each grid cell.
+  const spacing = TILE_RADIUS_METERS * 1.3;
+  const cols = Math.max(1, Math.min(MAX_TILES_PER_AXIS, Math.ceil(widthMeters / spacing)));
+  const rows = Math.max(1, Math.min(MAX_TILES_PER_AXIS, Math.ceil(heightMeters / spacing)));
+
+  const tiles: { center: google.maps.LatLng; radius: number }[] = [];
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const lat = sw.lat() + ((row + 0.5) / rows) * (ne.lat() - sw.lat());
+      const lng = sw.lng() + ((col + 0.5) / cols) * (ne.lng() - sw.lng());
+      tiles.push({ center: new google.maps.LatLng(lat, lng), radius: TILE_RADIUS_METERS });
+    }
+  }
+  return tiles;
+}
+
 export const CastleMap = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -90,9 +142,6 @@ export const CastleMap = () => {
       .then(() => {
         if (cancelled || !containerRef.current) return;
         const map = new google.maps.Map(containerRef.current, {
-          // Paris, zoomed to show the whole town.
-          center: { lat: 48.8566, lng: 2.3522 },
-          zoom: 12,
           styles: MAP_STYLES,
           mapTypeControl: false,
           streetViewControl: false,
@@ -100,6 +149,14 @@ export const CastleMap = () => {
           zoomControl: true,
           gestureHandling: "greedy",
         });
+        // Fit to the whole Île-de-France region on first load, rather than a
+        // fixed center/zoom — this stays correct across any screen size.
+        // Triggering `resize` first works around a known timing issue where
+        // fitBounds(), called immediately after the map is constructed,
+        // measures a stale/zero container size and zooms out much further
+        // than the given bounds actually require.
+        google.maps.event.trigger(map, "resize");
+        map.fitBounds(ILE_DE_FRANCE_BOUNDS);
         mapRef.current = map;
         infoWindowRef.current = new google.maps.InfoWindow();
         setStatus("ready");
@@ -135,28 +192,39 @@ export const CastleMap = () => {
       // Zoomed in enough — clear the zoom-in hint if it was showing.
       setStatus((prev) => (prev === "zoom-in" ? "ready" : prev));
 
-      const center = map.getCenter();
       const bounds = map.getBounds();
-      if (!center || !bounds) return;
+      if (!bounds) return;
 
-      const halfDiagonal = haversineMeters(center, bounds.getNorthEast());
-      const radius = Math.min(halfDiagonal, MAX_RADIUS_METERS);
+      const tiles = computeSearchTiles(bounds);
       const gen = ++searchGenRef.current;
 
       try {
-        const response = await google.maps.places.Place.searchNearby({
-          includedTypes: ["castle"],
-          locationRestriction: { center, radius },
-          maxResultCount: MAX_RESULTS,
-          fields: [...SEARCH_FIELDS],
-          rankPreference: "POPULARITY",
-        });
+        const responses = await Promise.all(
+          tiles.map((tile) =>
+            google.maps.places.Place.searchNearby({
+              includedTypes: ["castle"],
+              locationRestriction: { center: tile.center, radius: tile.radius },
+              maxResultCount: MAX_RESULTS,
+              fields: [...SEARCH_FIELDS],
+              rankPreference: "POPULARITY",
+            }),
+          ),
+        );
         if (cancelled || gen !== searchGenRef.current) return;
+
+        // Merge every tile's results, de-duplicating places that fall inside
+        // more than one overlapping circle.
+        const merged = new Map<string, google.maps.places.Place>();
+        for (const response of responses) {
+          for (const place of response.places ?? []) {
+            if (place.id) merged.set(place.id, place);
+          }
+        }
         // Nearby Search (New) can occasionally return places that aren't
         // actually tagged with the requested type — a known looseness for
         // narrow categories like `castle` when few real matches exist nearby.
         // Enforce the filter ourselves so no restaurant/shop/etc. slips in.
-        const castlesOnly = (response.places ?? []).filter((place) =>
+        const castlesOnly = [...merged.values()].filter((place) =>
           place.types?.includes("castle"),
         );
         syncMarkers(castlesOnly);
