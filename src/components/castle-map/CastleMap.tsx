@@ -34,10 +34,23 @@ const SEARCH_FIELDS = [
  * Map style that hides *every* default point-of-interest icon and label.
  * Google's style JSON has no "castle" category, so we hide all POIs and draw
  * our own castle markers from the Places API (New) `castle` place type.
+ *
+ * The generic `featureType: "poi"` rule alone can still leave some default
+ * icons visible — Google's tile renderer sometimes "spotlights" individual
+ * well-reviewed businesses regardless of the general POI rule. Listing every
+ * POI sub-category explicitly (the documented workaround) closes that gap.
  */
 const MAP_STYLES: google.maps.MapTypeStyle[] = [
-  { featureType: "poi", stylers: [{ visibility: "off" }] },
-  { featureType: "transit", stylers: [{ visibility: "off" }] },
+  { featureType: "poi", elementType: "all", stylers: [{ visibility: "off" }] },
+  { featureType: "poi.attraction", elementType: "all", stylers: [{ visibility: "off" }] },
+  { featureType: "poi.business", elementType: "all", stylers: [{ visibility: "off" }] },
+  { featureType: "poi.government", elementType: "all", stylers: [{ visibility: "off" }] },
+  { featureType: "poi.medical", elementType: "all", stylers: [{ visibility: "off" }] },
+  { featureType: "poi.park", elementType: "all", stylers: [{ visibility: "off" }] },
+  { featureType: "poi.place_of_worship", elementType: "all", stylers: [{ visibility: "off" }] },
+  { featureType: "poi.school", elementType: "all", stylers: [{ visibility: "off" }] },
+  { featureType: "poi.sports_complex", elementType: "all", stylers: [{ visibility: "off" }] },
+  { featureType: "transit", elementType: "all", stylers: [{ visibility: "off" }] },
   { featureType: "administrative.land_parcel", stylers: [{ visibility: "simplified" }] },
 ];
 
