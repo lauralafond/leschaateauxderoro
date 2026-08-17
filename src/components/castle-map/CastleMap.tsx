@@ -4,10 +4,19 @@ import { loadGoogleMaps } from "@/lib/google-maps-loader";
 import { buildCastleIcon } from "@/lib/castle-marker-icon";
 import { buildCastlePopupContent } from "./CastlePopupContent";
 
-/** Nearby Search (New) hard caps the radius at 50km; stay a bit under it. */
-const TILE_RADIUS_METERS = 45000;
+/**
+ * Nearby Search (New) caps every response at 20 results, ranked by
+ * popularity within the searched circle. Île-de-France is dense with
+ * lesser-known châteaux, so a wide circle can have more than 20 real
+ * `castle`-tagged places in it — the smaller/less-visited ones then get
+ * crowded out of the response entirely by more famous castles (Versailles,
+ * Fontainebleau, etc.), even though the API itself never hit an error.
+ * Keeping each tile's radius small keeps the real castle count per circle
+ * comfortably under that cap.
+ */
+const TILE_RADIUS_METERS = 15000;
 /** Cap grid size per axis so a very wide viewport can't fire unbounded requests. */
-const MAX_TILES_PER_AXIS = 4;
+const MAX_TILES_PER_AXIS = 14;
 const MAX_RESULTS = 20;
 
 /** Approximate center of the Île-de-France region, paired with a zoom level
