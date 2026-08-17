@@ -7,8 +7,13 @@ import { routers } from "./router";
 
 const queryClient = new QueryClient();
 
+// Matches Vite's `base` (see vite.config.ts): "/" for Enter's own hosting,
+// "/leschaateauxderoro" for the GitHub Pages build, so client-side route
+// matching stays correct under either deployment's URL prefix.
+const basename = import.meta.env.BASE_URL.replace(/\/$/, "") || undefined;
+
 const App = () => {
-  const router = createBrowserRouter(routers);
+  const router = createBrowserRouter(routers, { basename });
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

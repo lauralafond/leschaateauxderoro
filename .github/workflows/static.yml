@@ -1,4 +1,5 @@
-# Simple workflow for deploying static content to GitHub Pages
+# Workflow for building and deploying this Vite app to GitHub Pages,
+# served at https://lauralafond.github.io/leschaateauxderoro/
 name: Deploy static content to Pages
 
 on:
@@ -22,22 +23,45 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Single deploy job since we're just deploying
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8.6.12
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        # GITHUB_PAGES_BASE=1 tells vite.config.ts to prefix every asset/route
+        # path with /leschaateauxderoro/ instead of the default root "/".
+        run: pnpm run build:prod
+        env:
+          GITHUB_PAGES_BASE: "1"
+      - name: Add SPA fallback for direct/deep links
+        run: cp dist/index.html dist/404.html
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload entire repository
-          path: '.'
+          path: "./dist"
+
+  deploy:
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+
