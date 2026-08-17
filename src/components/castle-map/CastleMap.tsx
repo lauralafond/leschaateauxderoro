@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { loadGoogleMaps } from "@/lib/google-maps-loader";
+import { GOOGLE_MAPS_MAP_ID } from "@/config/google-maps";
+import { loadGoogleMaps, isPlaceholderKey } from "@/lib/google-maps-loader";
 import { buildCastleIcon } from "@/lib/castle-marker-icon";
 import { buildCastlePopupContent } from "./CastlePopupContent";
 
@@ -89,11 +90,16 @@ export const CastleMap = () => {
     loadGoogleMaps()
       .then(() => {
         if (cancelled || !containerRef.current) return;
+        // A configured Map ID enables Cloud-based map styling (set up in
+        // Google Cloud Console), which is the only way to also suppress
+        // Google's "spotlighted business" tiles. Google ignores the inline
+        // `styles` array whenever a Map ID is present, so only pass one.
+        const hasMapId = !isPlaceholderKey(GOOGLE_MAPS_MAP_ID);
         const map = new google.maps.Map(containerRef.current, {
           // Paris, zoomed to show the whole town.
           center: { lat: 48.8566, lng: 2.3522 },
           zoom: 12,
-          styles: MAP_STYLES,
+          ...(hasMapId ? { mapId: GOOGLE_MAPS_MAP_ID } : { styles: MAP_STYLES }),
           mapTypeControl: false,
           streetViewControl: false,
           fullscreenControl: true,
