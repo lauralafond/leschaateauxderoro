@@ -76,9 +76,9 @@ export const CastleMap = () => {
       .then(() => {
         if (cancelled || !containerRef.current) return;
         const map = new google.maps.Map(containerRef.current, {
-          // Central Europe — plenty of famous castles within panning distance.
+          // Paris, zoomed to show the whole town.
           center: { lat: 48.8566, lng: 2.3522 },
-          zoom: 5,
+          zoom: 12,
           styles: MAP_STYLES,
           mapTypeControl: false,
           streetViewControl: false,
