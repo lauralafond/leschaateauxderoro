@@ -19,21 +19,3 @@
  */
 export const GOOGLE_MAPS_API_KEY = "AIzaSyCFsUvWYZ9Zmt34ZrBWMr4BnqhT80WSq4Q";
 
-/**
- * Optional Map ID for Cloud-based map styling (Google Cloud Console → Google
- * Maps Platform → Map Management). This is the only way to suppress Google's
- * "spotlighted business" icons baked into the base map tiles — the classic
- * inline `styles` array (used elsewhere in this app) cannot touch them.
- *
- * To set one up:
- * 1. Cloud Console → Google Maps Platform → Map Management → "Create Map ID".
- * 2. Map type: JavaScript, associate it with a new or existing Map Style.
- * 3. In the Style editor, turn off "Points of interest" (business icons).
- * 4. Paste the Map ID below.
- *
- * When left as the placeholder, the app falls back to the classic inline
- * `styles` array in CastleMap.tsx (POI labels/icons hidden, but the
- * spotlighted-business tile overlay may still show through).
- */
-export const GOOGLE_MAPS_MAP_ID = "256862b171b499ce672b6b34";
-

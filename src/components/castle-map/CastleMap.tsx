@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { GOOGLE_MAPS_MAP_ID } from "@/config/google-maps";
-import { loadGoogleMaps, isPlaceholderKey } from "@/lib/google-maps-loader";
+import { loadGoogleMaps } from "@/lib/google-maps-loader";
 import { buildCastleIcon } from "@/lib/castle-marker-icon";
 import { buildCastlePopupContent } from "./CastlePopupContent";
 
@@ -36,10 +35,10 @@ const SEARCH_FIELDS = [
  * Google's style JSON has no "castle" category, so we hide all POIs and draw
  * our own castle markers from the Places API (New) `castle` place type.
  *
- * The generic `featureType: "poi"` rule alone can still leave some default
- * icons visible — Google's tile renderer sometimes "spotlights" individual
- * well-reviewed businesses regardless of the general POI rule. Listing every
- * POI sub-category explicitly (the documented workaround) closes that gap.
+ * Note: Google's tile renderer can still "spotlight" a few individual
+ * well-reviewed businesses regardless of this style (a platform-level
+ * overlay unrelated to the styleable POI layer) — this is a known Google
+ * Maps limitation with no available style setting to suppress it.
  */
 const MAP_STYLES: google.maps.MapTypeStyle[] = [
   { featureType: "poi", elementType: "all", stylers: [{ visibility: "off" }] },
@@ -90,16 +89,11 @@ export const CastleMap = () => {
     loadGoogleMaps()
       .then(() => {
         if (cancelled || !containerRef.current) return;
-        // A configured Map ID enables Cloud-based map styling (set up in
-        // Google Cloud Console), which is the only way to also suppress
-        // Google's "spotlighted business" tiles. Google ignores the inline
-        // `styles` array whenever a Map ID is present, so only pass one.
-        const hasMapId = !isPlaceholderKey(GOOGLE_MAPS_MAP_ID);
         const map = new google.maps.Map(containerRef.current, {
           // Paris, zoomed to show the whole town.
           center: { lat: 48.8566, lng: 2.3522 },
           zoom: 12,
-          ...(hasMapId ? { mapId: GOOGLE_MAPS_MAP_ID } : { styles: MAP_STYLES }),
+          styles: MAP_STYLES,
           mapTypeControl: false,
           streetViewControl: false,
           fullscreenControl: true,
