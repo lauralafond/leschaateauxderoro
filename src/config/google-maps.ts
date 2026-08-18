@@ -17,5 +17,10 @@
  * If the placeholder is still here at runtime the map component fails
  * gracefully with a visible message instead of a blank screen.
  */
+/**
+Prod key
 export const GOOGLE_MAPS_API_KEY = "AIzaSyCFsUvWYZ9Zmt34ZrBWMr4BnqhT80WSq4Q";
+*/
+export const GOOGLE_MAPS_API_KEY = "AIzaSyCk8NcQh_8h_yBABVZGo3RFLRtlscGAqvs";
+
 
